@@ -9,12 +9,24 @@
 /* Begin PBXBuildFile section */
 		E710838322DA017500670EBD /* MeshExport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E710838222DA017500670EBD /* MeshExport.cpp */; };
 		E710838622DA01C800670EBD /* libcommon.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E710838522DA01C800670EBD /* libcommon.a */; };
+		E738BE7E22ECB1E90006BE22 /* libmeshoptimizer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E738BE7922EC7BCC0006BE22 /* libmeshoptimizer.a */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E738BE7822EC7BCC0006BE22 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E738BE7222EC7BCC0006BE22 /* meshoptimizer.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 01008C9BA30F434A97D2EDE9;
+			remoteInfo = meshoptimizer;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		E710837B22DA00F300670EBD /* libModoSceneSaver.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libModoSceneSaver.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		E710838222DA017500670EBD /* MeshExport.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MeshExport.cpp; sourceTree = "<group>"; };
 		E710838522DA01C800670EBD /* libcommon.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcommon.a; path = ../LXSDK_540366/build/Debug/libcommon.a; sourceTree = "<group>"; };
+		E738BE7222EC7BCC0006BE22 /* meshoptimizer.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = meshoptimizer.xcodeproj; path = ../3rdparty/meshoptimizer/meshoptimizer.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -22,6 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E738BE7E22ECB1E90006BE22 /* libmeshoptimizer.a in Frameworks */,
 				E710838622DA01C800670EBD /* libcommon.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -32,6 +45,7 @@
 		E710837222DA00F300670EBD = {
 			isa = PBXGroup;
 			children = (
+				E738BE7222EC7BCC0006BE22 /* meshoptimizer.xcodeproj */,
 				E710838222DA017500670EBD /* MeshExport.cpp */,
 				E710837C22DA00F300670EBD /* Products */,
 				E710838422DA01C800670EBD /* Frameworks */,
@@ -52,6 +66,14 @@
 				E710838522DA01C800670EBD /* libcommon.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		E738BE7322EC7BCC0006BE22 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E738BE7922EC7BCC0006BE22 /* libmeshoptimizer.a */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -104,16 +126,33 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = E710837222DA00F300670EBD;
 			productRefGroup = E710837C22DA00F300670EBD /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = E738BE7322EC7BCC0006BE22 /* Products */;
+					ProjectRef = E738BE7222EC7BCC0006BE22 /* meshoptimizer.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				E710837A22DA00F300670EBD /* ModoSceneSaver */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		E738BE7922EC7BCC0006BE22 /* libmeshoptimizer.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libmeshoptimizer.a;
+			remoteRef = E738BE7822EC7BCC0006BE22 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXSourcesBuildPhase section */
 		E710837822DA00F300670EBD /* Sources */ = {
@@ -245,8 +284,14 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXECUTABLE_PREFIX = lib;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/include\"";
-				"HEADER_SEARCH_PATHS[arch=*]" = "\"$(SRCROOT)/../LXSDK_540366/include\"";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../LXSDK_540366/include\"",
+					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+				);
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"\"$(SRCROOT)/../LXSDK_540366/include\"",
+					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -260,7 +305,10 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXECUTABLE_PREFIX = lib;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/include\"";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/../LXSDK_540366/include\"",
+					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
