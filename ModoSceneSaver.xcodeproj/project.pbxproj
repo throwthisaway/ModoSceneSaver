@@ -280,6 +280,7 @@
 		E710838022DA00F300670EBD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGN_STYLE = Automatic;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -287,10 +288,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
-				);
-				"HEADER_SEARCH_PATHS[arch=*]" = (
-					"\"$(SRCROOT)/../LXSDK_540366/include\"",
-					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+					"\"$(SRCROOT)/../ModoMeshLoader\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -301,6 +299,7 @@
 		E710838122DA00F300670EBD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGN_STYLE = Automatic;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -308,6 +307,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+					"\"$(SRCROOT)/../ModoMeshLoader\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";

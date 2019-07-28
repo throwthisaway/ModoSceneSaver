@@ -16,30 +16,16 @@
 #include <sstream>
 
 #include <meshoptimizer.h>
+#include <ModoMeshLoader.h>
 
 using namespace std;
+using namespace ModoMeshLoader;
 namespace {
-using index_t = uint16_t;	// Index buffer element type
-const int kVertPerPoly = 3;
-enum class TextureTypes{kAlbedo, kNormal, kMetallic, kRoughness, kCount};
-struct Texture {
-    unsigned image, uv;
-};
-struct Material {
-	uint16_t count;
-	//string name;
-	float rgb[3];
-	float metallic, roughess;
-	unsigned textureMask;
-	unsigned uvCount;
-	Texture textures[(int)TextureTypes::kCount];
-	int indexByteOffset, vertexByteOffset, stride;
-};
 template<typename T>
 struct FileFormat {
 	T ff;
 	void WriteVERT(unsigned size, unsigned count) {
-		ff.lf_Output("VERT");ff.lf_Output(size);ff.lf_Output(count);ff.lf_Break();
+		ff.lf_Output(Tag(VERT));ff.lf_Output(size);ff.lf_Output(count);ff.lf_Break();
 	}
 	void WriteVertices(float * vec, unsigned count, unsigned elementCount) {
 		for (unsigned i = 0; i < count; ++i) {
@@ -49,19 +35,18 @@ struct FileFormat {
 		ff.lf_Break();
 	}
 	void WritePOLY(unsigned count) {
-		ff.lf_Output("POLY");ff.lf_Output((unsigned)(count * sizeof(index_t)));ff.lf_Output(count); ff.lf_Break();
+		ff.lf_Output(Tag(POLY));ff.lf_Output((unsigned)(count * sizeof(index_t)));ff.lf_Output(count); ff.lf_Break();
 	}
 	void WritePolygon(unsigned pnt0, unsigned pnt1, unsigned pnt2) {
 		ff.lf_Output(pnt0);ff.lf_Output(pnt1);ff.lf_Output(pnt2);
 	}
 	void WriteTexture(const Texture& texture) {
-		ff.lf_Output(texture.image);ff.lf_Output(texture.uv);
+		ff.lf_Output(texture.id);ff.lf_Output(texture.uv);
 	}
 	void WriteMaterials(const vector<Material>& materials) {
-		ff.lf_Output("MATR"); ff.lf_Output((unsigned)(materials.size() * sizeof(materials[0])));ff.lf_Output((unsigned)materials.size());ff.lf_Break();
+		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(materials.size() * sizeof(materials[0])));ff.lf_Output((unsigned)materials.size());ff.lf_Break();
 		for (auto& material : materials) {
 			//ff.lf_Output(material.name.c_str());
-			ff.lf_Output(material.count);
 			ff.lf_Output(material.vertexByteOffset);
 			ff.lf_Output(material.indexByteOffset);
 			ff.lf_Output(material.stride);
@@ -71,10 +56,12 @@ struct FileFormat {
 			ff.lf_Output(material.metallic);
 			ff.lf_Output(material.roughess);
 			ff.lf_Output(material.textureMask);
+			ff.lf_Output(material.uvCount);
 			WriteTexture(material.textures[(int)TextureTypes::kAlbedo]);
 			WriteTexture(material.textures[(int)TextureTypes::kNormal]);
 			WriteTexture(material.textures[(int)TextureTypes::kMetallic]);
 			WriteTexture(material.textures[(int)TextureTypes::kRoughness]);
+			ff.lf_Output(material.count);
 			ff.lf_Break();
 		}
 	}
@@ -83,14 +70,14 @@ struct FileFormat {
 		for(const auto& str : images) {
 			size += (unsigned)str.length() + 1; ff.lf_Break();
 		}
-		ff.lf_Output("IMAG");ff.lf_Output(size);ff.lf_Output((unsigned)images.size());ff.lf_Break();
+		ff.lf_Output(Tag(IMAG));ff.lf_Output(size);ff.lf_Output((unsigned)images.size());ff.lf_Break();
 		for(const auto& str : images) {
 			ff.lf_Output(str.c_str()); ff.lf_Break();
 		}
 	}
 	void WritePolygons(uint16_t * indices, uint16_t count) {
-		for (uint16_t j = 0; j < count; ++j) {
-			ff.lf_Output(indices[j]);
+		for (uint16_t j = 0; j < count; j += 2) {
+			ff.lf_Output((indices[j] << 16) | indices[j + 1]);
 			if (!((j + 1) % kVertPerPoly)) ff.lf_Break();
 		}
 	}
@@ -107,7 +94,7 @@ class MeshExport : public CLxSceneSaver {
 public:
 	static LXtTagInfoDesc descInfo[];
 	FileFormat<BinaryFormat> fileFormat;
-    //FileFormat<LineFormat> fileFormat;
+	//FileFormat<LineFormat> fileFormat;
 	CLxFileFormat* ss_Format() override { return &fileFormat.ff; }
 
 	void ss_Verify() override;
@@ -171,7 +158,7 @@ void MeshExport::Copy(const char* src, const char * dst) {
 	ostringstream cp;
 	cp << "/bin/cp -rf \"" << src << "\" \"" << dst << "\"";
 	int res = system(cp.str().c_str());
-	int i = 0;
+	assert(!res);
 }
 size_t MeshExport::FindLastSeparator(const string& str) {
 	auto pos = str.rfind('/');
@@ -208,7 +195,7 @@ bool MeshExport::GatherTexture(Texture& texture, const char* name, unsigned& uvC
 			auto pos = FindLastSeparator(str);
 			str = str.substr(pos, string::npos);
 			auto res = imageMap.insert(make_pair(str, (unsigned)images.size()));
-			texture.image = res.first->second;
+			texture.id = res.first->second;
 			if (res.second) images.push_back(res.first->first);
 			SetItem(item);	// restore from texture image item
 			return true;
