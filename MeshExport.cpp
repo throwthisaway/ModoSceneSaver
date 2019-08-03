@@ -47,14 +47,14 @@ struct FileFormat {
 		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(materials.size() * sizeof(materials[0])));ff.lf_Output((unsigned)materials.size());ff.lf_Break();
 		for (auto& material : materials) {
 			//ff.lf_Output(material.name.c_str());
-			ff.lf_Output(material.vertexByteOffset);
 			ff.lf_Output(material.indexByteOffset);
+			ff.lf_Output(material.vertexByteOffset);
 			ff.lf_Output(material.stride);
 			ff.lf_Output(material.rgb[0]);
 			ff.lf_Output(material.rgb[1]);
 			ff.lf_Output(material.rgb[2]);
 			ff.lf_Output(material.metallic);
-			ff.lf_Output(material.roughess);
+			ff.lf_Output(material.roughness);
 			ff.lf_Output(material.textureMask);
 			ff.lf_Output(material.uvCount);
 			WriteTexture(material.textures[(int)TextureTypes::kAlbedo]);
@@ -77,7 +77,7 @@ struct FileFormat {
 	}
 	void WritePolygons(uint16_t * indices, uint16_t count) {
 		for (uint16_t j = 0; j < count; j += 2) {
-			ff.lf_Output((indices[j] << 16) | indices[j + 1]);
+			ff.lf_Output((indices[j + 1] << 16) | indices[j]);
 			if (!((j + 1) % kVertPerPoly)) ff.lf_Break();
 		}
 	}
@@ -216,7 +216,7 @@ void MeshExport::GatherMaterials() {
                 material.rgb[1] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".G");
                 material.rgb[2] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".B");
                 material.metallic = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_METALLIC);
-                material.roughess = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_ROUGH);
+                material.roughness = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_ROUGH);
             }
             if (ChanInt(LXsICHAN_TEXTURELAYER_ENABLE)) {
                 if (ItemIsA(LXsITYPE_IMAGEMAP)) {
@@ -338,7 +338,7 @@ void MeshExport::ss_Polygon() {
 	auto& material = materials[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	if (PolyNumVerts() != kVertPerPoly) return;
 	LXtVector n;
-	for (int i = 0; i < kVertPerPoly; ++i) {
+	for (int i = kVertPerPoly - 1; i >=0 ; --i) {
 		auto& pt = points[PolyVertex(i)];
 		vertices.push_back(pt[0]);vertices.push_back(pt[1]);vertices.push_back(pt[2]);
 		if (PolyNormal(n, PolyVertex(i))) {
