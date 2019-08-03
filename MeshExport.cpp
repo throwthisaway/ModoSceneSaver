@@ -338,7 +338,7 @@ void MeshExport::ss_Polygon() {
 	auto& material = materials[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	if (PolyNumVerts() != kVertPerPoly) return;
 	LXtVector n;
-	for (int i = kVertPerPoly - 1; i >=0 ; --i) {
+	for (int i = 0; i < kVertPerPoly ; ++i) {
 		auto& pt = points[PolyVertex(i)];
 		vertices.push_back(pt[0]);vertices.push_back(pt[1]);vertices.push_back(pt[2]);
 		if (PolyNormal(n, PolyVertex(i))) {
