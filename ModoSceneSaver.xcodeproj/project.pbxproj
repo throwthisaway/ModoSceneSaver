@@ -288,7 +288,9 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+					"\"$(SRCROOT)/../Shared\"",
 					"\"$(SRCROOT)/../ModoMeshLoader\"",
+					"\"$(SRCROOT)/../3rdparty/glm\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -307,7 +309,9 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
+					"\"$(SRCROOT)/../Shared\"",
 					"\"$(SRCROOT)/../ModoMeshLoader\"",
+					"\"$(SRCROOT)/../3rdparty/glm\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
 				PRODUCT_NAME = "$(TARGET_NAME)";

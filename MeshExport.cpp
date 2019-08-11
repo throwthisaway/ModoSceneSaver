@@ -43,25 +43,30 @@ struct FileFormat {
 	void WriteTexture(const Texture& texture) {
 		ff.lf_Output(texture.id);ff.lf_Output(texture.uv);
 	}
-	void WriteMaterials(const vector<Material>& materials) {
-		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(materials.size() * sizeof(materials[0])));ff.lf_Output((unsigned)materials.size());ff.lf_Break();
-		for (auto& material : materials) {
+	void WriteSubmeshes(const vector<Submesh>& submeshes) {
+		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(submeshes.size() * sizeof(submeshes[0])));ff.lf_Output((unsigned)submeshes.size());ff.lf_Break();
+		for (auto& submesh : submeshes) {
 			//ff.lf_Output(material.name.c_str());
-			ff.lf_Output(material.indexByteOffset);
-			ff.lf_Output(material.vertexByteOffset);
-			ff.lf_Output(material.stride);
-			ff.lf_Output(material.rgb[0]);
-			ff.lf_Output(material.rgb[1]);
-			ff.lf_Output(material.rgb[2]);
-			ff.lf_Output(material.metallic);
-			ff.lf_Output(material.roughness);
-			ff.lf_Output(material.textureMask);
-			ff.lf_Output(material.uvCount);
-			WriteTexture(material.textures[(int)TextureTypes::kAlbedo]);
-			WriteTexture(material.textures[(int)TextureTypes::kNormal]);
-			WriteTexture(material.textures[(int)TextureTypes::kMetallic]);
-			WriteTexture(material.textures[(int)TextureTypes::kRoughness]);
-			ff.lf_Output(material.count);
+			ff.lf_Output(submesh.indexByteOffset);
+			ff.lf_Output(submesh.vertexByteOffset);
+			ff.lf_Output(submesh.stride);
+			ff.lf_Output(0xdeadbeef/*pad*/);
+			ff.lf_Output(submesh.material.diffuse.r);
+			ff.lf_Output(submesh.material.diffuse.g);
+			ff.lf_Output(submesh.material.diffuse.b);
+			ff.lf_Output(0xdeadbeef/*pad*/);
+			ff.lf_Output(submesh.material.metallic_roughness.r);
+			ff.lf_Output(submesh.material.metallic_roughness.g);
+			ff.lf_Output(0xdeadbeef/*pad*/);
+			ff.lf_Output(0xdeadbeef/*pad*/);
+			ff.lf_Output(submesh.textureMask);
+			ff.lf_Output(submesh.uvCount);
+			WriteTexture(submesh.textures[(int)TextureTypes::kAlbedo]);
+			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]);
+			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]);
+			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]);
+			ff.lf_Output(submesh.count);
+			ff.lf_Output(0xdead/*pad*/);
 			ff.lf_Break();
 		}
 	}
@@ -103,7 +108,7 @@ public:
 	void ss_Polygon() override;
 
 //    void EnumRender(CLxUser_Item& item);
-    void GatherMaterials();
+    void GatherSubmeshes();
     bool GatherTexture(Texture& texture, const char* fx, unsigned& uvCount);
 	void Copy(const char* src, const char * dst);
 	size_t FindLastSeparator(const string& str);
@@ -113,7 +118,7 @@ public:
 	map<string, unsigned> imageMap;
 	std::vector<string> images;
 	map<string, unsigned> materialMap;
-	vector<Material> materials;
+	vector<Submesh> submeshes;
 	vector<std::vector<float>> vertexData;	// vertices per material
 	map<string, unsigned> uvMap;
 	std::vector<string> uvs;
@@ -203,31 +208,31 @@ bool MeshExport::GatherTexture(Texture& texture, const char* name, unsigned& uvC
     }
 	return false;
 }
-void MeshExport::GatherMaterials() {
+void MeshExport::GatherSubmeshes() {
     // same goes for other tag types like: Part, Selection set
     //!!! auto material_tag_of_the_polygon = ChanString(LXsICHAN_MASK_PTAG);
     for (auto& kv : materialMap) {
         if (!ScanMask(kv.first.c_str())) continue;
 		bitset<32> mask;
-		auto& material = materials[kv.second];
+		auto& submesh = submeshes[kv.second];
         while (NextLayer()) {
             if (!strcmp(ItemType(), "unrealShader")) {
-                material.rgb[0] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".R");
-                material.rgb[1] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".G");
-                material.rgb[2] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".B");
-                material.metallic = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_METALLIC);
-                material.roughness = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_ROUGH);
+                submesh.material.diffuse[0] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".R");
+                submesh.material.diffuse[1] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".G");
+                submesh.material.diffuse[2] = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_BASECOL".B");
+                submesh.material.metallic_roughness.x = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_METALLIC);
+                submesh.material.metallic_roughness.y = (float)ChanFloat(LXsICHAN_UNREALMATERIAL_ROUGH);
             }
             if (ChanInt(LXsICHAN_TEXTURELAYER_ENABLE)) {
                 if (ItemIsA(LXsITYPE_IMAGEMAP)) {
-					if (GatherTexture(material.textures[(int)TextureTypes::kAlbedo], "baseUE", material.uvCount)) mask.set((size_t)TextureTypes::kAlbedo);
-					if (GatherTexture(material.textures[(int)TextureTypes::kNormal], "normalUE", material.uvCount)) mask.set((size_t)TextureTypes::kNormal);
-					if (GatherTexture(material.textures[(int)TextureTypes::kMetallic], "metallicUE", material.uvCount)) mask.set((size_t)TextureTypes::kMetallic);
-					if (GatherTexture(material.textures[(int)TextureTypes::kRoughness], "roughUE", material.uvCount)) mask.set((size_t)TextureTypes::kRoughness);
+					if (GatherTexture(submesh.textures[(int)TextureTypes::kAlbedo], "baseUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kAlbedo);
+					if (GatherTexture(submesh.textures[(int)TextureTypes::kNormal], "normalUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kNormal);
+					if (GatherTexture(submesh.textures[(int)TextureTypes::kMetallic], "metallicUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kMetallic);
+					if (GatherTexture(submesh.textures[(int)TextureTypes::kRoughness], "roughUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kRoughness);
 				}
 			}
         }
-		material.textureMask = (unsigned)mask.to_ulong();
+		submesh.textureMask = (unsigned)mask.to_ulong();
     }
 }
 
@@ -254,7 +259,7 @@ LxResult MeshExport::ss_Save() {
 	while (NextMesh())
 		WritePolys();
 
-	GatherMaterials();
+	GatherSubmeshes();
 
 	StartScan();
 	while (NextMesh())
@@ -279,8 +284,8 @@ LxResult MeshExport::ss_Save() {
 		std::vector<index_t> indices;
 		std::vector<float> vertices;
 		auto& vd = vertexData[i];
-		const auto& material = materials[i];
-		int elementSize = 3 * 2 + 2 * material.uvCount;
+		auto& submesh = submeshes[i];
+		int elementSize = 3 * 2 + 2 * submesh.uvCount;
 		int byteStride = sizeof(float)  * elementSize;
 		const size_t elementCount = vd.size() / elementSize;
 		std::vector<uint32_t> remap(elementCount);
@@ -289,9 +294,9 @@ LxResult MeshExport::ss_Save() {
 		meshopt_remapIndexBuffer<index_t>(indices.data(), nullptr, elementCount, remap.data());
 		vertices.resize(vertexCount * elementSize);
 		meshopt_remapVertexBuffer(vertices.data(), vd.data(), elementCount, byteStride, remap.data());
-		materials[i].indexByteOffset = indexByteOffset; materials[i].vertexByteOffset = vertexByteOffset;
-		materials[i].stride = byteStride;
-		materials[i].count = (int)indices.size();
+		submesh.indexByteOffset = indexByteOffset; submesh.vertexByteOffset = vertexByteOffset;
+		submesh.stride = byteStride;
+		submesh.count = (int)indices.size();
 		indexByteOffset += indices.size() * sizeof(indices[0]);
 		vertexByteOffset += vertices.size() * sizeof(vertices[0]);
 		iCount += indices.size();
@@ -300,11 +305,11 @@ LxResult MeshExport::ss_Save() {
 	}
 
 	// actual serialization
-	fileFormat.WriteMaterials(materials);
+	fileFormat.WriteSubmeshes(submeshes);
 	fileFormat.WriteImages(images);
 	fileFormat.WriteVERT(vertexByteOffset, vCount);
 	for (int i = 0; i < out.size(); ++i) {
-		int elementSize = 3 * 2 + 2 * materials[i].uvCount;
+		int elementSize = 3 * 2 + 2 * submeshes[i].uvCount;
 		fileFormat.WriteVertices(out[i].vertices.data(), (unsigned)out[i].vertices.size(), elementSize);
 	}
 	fileFormat.WritePOLY(iCount);
@@ -312,7 +317,7 @@ LxResult MeshExport::ss_Save() {
 		fileFormat.WritePolygons(out[i].indices.data(), (uint16_t)out[i].indices.size());
 
 	vertexData.clear();
-	materials.clear();
+	submeshes.clear();
 	points.clear();
 	materialMap.clear();
 	images.clear();
@@ -326,16 +331,16 @@ void MeshExport::ss_Polygon() {
 		if (PolyNumVerts() != kVertPerPoly) return;
 		const char *mask = PolyTag(LXi_PTAG_MATR);
 		if (mask) {
-			auto res = materialMap.emplace(mask, (unsigned)materials.size());
-			if (res.second) materials.push_back({});
+			auto res = materialMap.emplace(mask, (unsigned)submeshes.size());
+			if (res.second) submeshes.push_back({});
 			//else ++materials[res.first->second].count;
 		}
 		return;
 	}
 	++polyCount;
-	vertexData.resize(materials.size());
+	vertexData.resize(submeshes.size());
 	auto& vertices = vertexData[materialMap[PolyTag(LXi_PTAG_MATR)]];
-	auto& material = materials[materialMap[PolyTag(LXi_PTAG_MATR)]];
+	auto& material = submeshes[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	if (PolyNumVerts() != kVertPerPoly) return;
 	LXtVector n;
 	for (int i = 0; i < kVertPerPoly ; ++i) {
@@ -344,18 +349,18 @@ void MeshExport::ss_Polygon() {
 		if (PolyNormal(n, PolyVertex(i))) {
 			vertices.push_back((float)n[0]);vertices.push_back((float)n[1]);vertices.push_back((float)n[2]);
 		} else {
-			vertices.push_back(0.f); vertices.push_back(0.f); vertices.push_back(0.f);
+			vertices.push_back(255.f); vertices.push_back(255.f); vertices.push_back(255.f);
 		}
 		for (int uv = 0; uv < material.uvCount; ++uv) {
 			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[uv].c_str())) {
-				vertices.push_back(0.f); vertices.push_back(0.f);
+				vertices.push_back(255.f); vertices.push_back(255.f);
 				continue;
 			}
 			float f[2];
 			if (PolyMapValue(f, PolyVertex(i))) {
 				vertices.push_back(f[0]); vertices.push_back(f[1]);
 			} else {
-				vertices.push_back(0.f); vertices.push_back(0.f);
+				vertices.push_back(255.f); vertices.push_back(255.f);
 			}
 		}
 	}
