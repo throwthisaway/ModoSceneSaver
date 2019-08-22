@@ -1,6 +1,12 @@
 // #pragma warning(disable: 4786)
-#undef min
+#include "Platform.h"
+#ifdef PLATFORM_WIN
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+// Windows Header Files
+#include <windows.h>
 #undef max
+#undef min
+#endif
 #include <lxu_scene.hpp>
 #include <lxidef.h>
 #include <lxu_select.hpp>
@@ -17,6 +23,7 @@
 
 #include <meshoptimizer.h>
 #include <ModoMeshLoader.h>
+#include <bitset>
 
 using namespace std;
 using namespace ModoMeshLoader;
@@ -160,10 +167,15 @@ void MeshExport::ss_Verify() {
 	MessageArg(1, "Export mesh from scene");
 }
 void MeshExport::Copy(const char* src, const char * dst) {
+	if (!strcmp(src, dst)) return;	// TODO:: proper path comparison
+#ifdef PLATFORM_WIN
+	::CopyFileA(src, dst, FALSE);
+#else
 	ostringstream cp;
 	cp << "/bin/cp -rf \"" << src << "\" \"" << dst << "\"";
 	int res = system(cp.str().c_str());
 	assert(!res);
+#endif
 }
 size_t MeshExport::FindLastSeparator(const string& str) {
 	auto pos = str.rfind('/');
