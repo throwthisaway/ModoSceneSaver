@@ -87,7 +87,7 @@ struct FileFormat {
 			ff.lf_Output(str.c_str()); ff.lf_Break();
 		}
 	}
-	void WritePolygons(uint16_t * indices, uint32_t count) {
+	void WritePolygons(index_t * indices, uint32_t count) {
 		for (uint32_t j = 0; j < count; j += 2) {
 			ff.lf_Output((indices[j + 1] << 16) | indices[j]);
 			if (!((j + 1) % kVertPerPoly)) ff.lf_Break();
