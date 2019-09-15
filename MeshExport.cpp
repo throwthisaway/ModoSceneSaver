@@ -87,8 +87,8 @@ struct FileFormat {
 			ff.lf_Output(str.c_str()); ff.lf_Break();
 		}
 	}
-	void WritePolygons(uint16_t * indices, uint16_t count) {
-		for (uint16_t j = 0; j < count; j += 2) {
+	void WritePolygons(uint16_t * indices, uint32_t count) {
+		for (uint32_t j = 0; j < count; j += 2) {
 			ff.lf_Output((indices[j + 1] << 16) | indices[j]);
 			if (!((j + 1) % kVertPerPoly)) ff.lf_Break();
 		}
@@ -326,7 +326,7 @@ LxResult MeshExport::ss_Save() {
 	}
 	fileFormat.WritePOLY(iCount);
 	for (int i = 0; i < out.size(); ++i)
-		fileFormat.WritePolygons(out[i].indices.data(), (uint16_t)out[i].indices.size());
+		fileFormat.WritePolygons(out[i].indices.data(), out[i].indices.size());
 
 	vertexData.clear();
 	submeshes.clear();
@@ -352,7 +352,7 @@ void MeshExport::ss_Polygon() {
 	++polyCount;
 	vertexData.resize(submeshes.size());
 	auto& vertices = vertexData[materialMap[PolyTag(LXi_PTAG_MATR)]];
-	auto& material = submeshes[materialMap[PolyTag(LXi_PTAG_MATR)]];
+	auto& submesh = submeshes[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	if (PolyNumVerts() != kVertPerPoly) return;
 	LXtVector n;
 	for (int i = 0; i < kVertPerPoly ; ++i) {
@@ -363,7 +363,7 @@ void MeshExport::ss_Polygon() {
 		} else {
 			vertices.push_back(255.f); vertices.push_back(255.f); vertices.push_back(255.f);
 		}
-		for (int uv = 0; uv < material.uvCount; ++uv) {
+		for (int uv = 0; uv < submesh.uvCount; ++uv) {
 			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[uv].c_str())) {
 				vertices.push_back(255.f); vertices.push_back(255.f);
 				continue;
