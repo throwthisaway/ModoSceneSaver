@@ -17,6 +17,7 @@
 #include <lx_shade.hpp>
 
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -51,29 +52,25 @@ struct FileFormat {
 		ff.lf_Output(texture.id);ff.lf_Output(texture.uv);
 	}
 	void WriteSubmeshes(const vector<Submesh>& submeshes) {
-		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(submeshes.size() * sizeof(submeshes[0])));ff.lf_Output((unsigned)submeshes.size());ff.lf_Break();
+		const unsigned size = 76;
+		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(submeshes.size() * size));ff.lf_Output((unsigned)submeshes.size());ff.lf_Break();
 		for (auto& submesh : submeshes) {
 			//ff.lf_Output(material.name.c_str());
-			ff.lf_Output(submesh.indexByteOffset);
-			ff.lf_Output(submesh.vertexByteOffset);
-			ff.lf_Output(submesh.stride);
-			ff.lf_Output(0xdeadbeef/*pad*/);
-			ff.lf_Output(submesh.material.diffuse.r);
-			ff.lf_Output(submesh.material.diffuse.g);
-			ff.lf_Output(submesh.material.diffuse.b);
-			ff.lf_Output(0xdeadbeef/*pad*/);
-			ff.lf_Output(submesh.material.metallic_roughness.r);
-			ff.lf_Output(submesh.material.metallic_roughness.g);
-			ff.lf_Output(0xdeadbeef/*pad*/);
-			ff.lf_Output(0xdeadbeef/*pad*/);
-			ff.lf_Output(submesh.textureMask);
-			ff.lf_Output(submesh.uvCount);
-			WriteTexture(submesh.textures[(int)TextureTypes::kAlbedo]);
-			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]);
-			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]);
-			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]);
-			ff.lf_Output(submesh.count);
-			ff.lf_Output(0xdead/*pad*/);
+			ff.lf_Output(submesh.indexByteOffset); // 4
+			ff.lf_Output(submesh.vertexByteOffset); // 8
+			ff.lf_Output(submesh.stride); // 12
+			ff.lf_Output(submesh.material.diffuse.r); // 16
+			ff.lf_Output(submesh.material.diffuse.g); // 20
+			ff.lf_Output(submesh.material.diffuse.b); // 24
+			ff.lf_Output(submesh.material.metallic_roughness.r); // 28
+			ff.lf_Output(submesh.material.metallic_roughness.g); // 32
+			ff.lf_Output(submesh.textureMask); // 36
+			ff.lf_Output(submesh.uvCount); // 40
+			WriteTexture(submesh.textures[(int)TextureTypes::kAlbedo]); // 48
+			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]); // 56
+			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]); // 64
+			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]); // 72
+			ff.lf_Output(submesh.count); // 76
 			ff.lf_Break();
 		}
 	}
@@ -101,6 +98,14 @@ struct LineFormat : CLxLineFormat {
 struct BinaryFormat : CLxBinaryFormat {
 	void lf_Break() {}
 };
+
+inline bool HasTangent(const Submesh& submesh) {
+	return submesh.textureMask & (1<<(int)TextureTypes::kNormal);
+}
+inline int CalcElementCount(const Submesh& submesh) {
+	int tangent = HasTangent(submesh) ? 3 : 0;
+	return 3*2 /*pos + normal*/ + tangent + 2 * submesh.uvCount;
+}
 }
 class MeshExport : public CLxSceneSaver {
 public:
@@ -119,9 +124,14 @@ public:
     bool GatherTexture(Texture& texture, const char* fx, unsigned& uvCount);
 	void Copy(const char* src, const char * dst);
 	size_t FindLastSeparator(const string& str);
+
+	glm::vec3 CalcPointTangent(LXtPointID ptID);
+	glm::vec3 CalcPolyTangent();
+
 	LXtMatrix		 xfrm;
 	LXtVector		 xfrmPos;
 	map<LXtPointID, LXtFVector> points;
+	std::unordered_map<LXtPointID, std::vector<LXtPolygonID>> pointsToPolyMap;
 	map<string, unsigned> imageMap;
 	std::vector<string> images;
 	map<string, unsigned> materialMap;
@@ -263,7 +273,7 @@ LxResult MeshExport::ss_Save() {
 		npts += PointCount();
 
 	/*
-	 * Tabulate the colors of all the materials.
+	 * build material map, count points to polygons
 	 */
 	polyCount = 0;
 	get_matr = true;
@@ -297,7 +307,7 @@ LxResult MeshExport::ss_Save() {
 		std::vector<float> vertices;
 		auto& vd = vertexData[i];
 		auto& submesh = submeshes[i];
-		int elementSize = 3 * 2 + 2 * submesh.uvCount;
+		int elementSize = CalcElementCount(submesh);
 		int byteStride = sizeof(float)  * elementSize;
 		const size_t elementCount = vd.size() / elementSize;
 		std::vector<uint32_t> remap(elementCount);
@@ -321,12 +331,12 @@ LxResult MeshExport::ss_Save() {
 	fileFormat.WriteImages(images);
 	fileFormat.WriteVERT(vertexByteOffset, vCount);
 	for (int i = 0; i < out.size(); ++i) {
-		int elementSize = 3 * 2 + 2 * submeshes[i].uvCount;
+		int elementSize = CalcElementCount(submeshes[i]);
 		fileFormat.WriteVertices(out[i].vertices.data(), (unsigned)out[i].vertices.size(), elementSize);
 	}
 	fileFormat.WritePOLY(iCount);
 	for (int i = 0; i < out.size(); ++i)
-		fileFormat.WritePolygons(out[i].indices.data(), out[i].indices.size());
+		fileFormat.WritePolygons(out[i].indices.data(), (uint32_t)out[i].indices.size());
 
 	vertexData.clear();
 	submeshes.clear();
@@ -338,6 +348,38 @@ LxResult MeshExport::ss_Save() {
 	uvs.clear();
 	return LXe_OK;
 }
+
+glm::vec3 MeshExport::CalcPointTangent(LXtPointID ptID) {
+	const auto& polys = pointsToPolyMap[ptID];
+	glm::vec3 result{0};
+	for (const auto& poly : polys) {
+		PolySet(poly);
+		result += CalcPolyTangent();
+	}
+	return result / (float)polys.size();
+}
+glm::vec3 MeshExport::CalcPolyTangent() {
+	glm::vec3 result;
+	glm::vec2 uv0, uv1, uv2;
+	auto res = PolyMapValue((float*)&uv0, PolyVertex(0));
+	assert(res);
+	res = PolyMapValue((float*)&uv1, PolyVertex(1));
+	assert(res);
+	res = PolyMapValue((float*)&uv2, PolyVertex(2));
+	assert(res);
+	auto pt = points[PolyVertex(0)];
+	glm::vec3 p0 = glm::vec3(pt[0], pt[1], pt[2]);
+	pt = points[PolyVertex(1)];
+	glm::vec3 p1 = glm::vec3(pt[0], pt[1], pt[2]);
+	pt = points[PolyVertex(2)];
+	glm::vec3 p2 = glm::vec3(pt[0], pt[1], pt[2]);
+	auto e0 = p1 - p0, e1 = p2 - p0;
+	auto duv0 = uv1 - uv0, duv1 = uv2 - uv0;
+	float f = 1.f / (duv0.x * duv1.y - duv0.y * duv1.x);
+	result = glm::normalize(f * (duv1.y * e0 - duv0.y * e1));
+	return result;
+
+}
 void MeshExport::ss_Polygon() {
 	if (get_matr) {
 		if (PolyNumVerts() != kVertPerPoly) return;
@@ -346,6 +388,12 @@ void MeshExport::ss_Polygon() {
 			auto res = materialMap.emplace(mask, (unsigned)submeshes.size());
 			if (res.second) submeshes.push_back({});
 			//else ++materials[res.first->second].count;
+
+			// record points to polygons
+			for (int i = 0; i < kVertPerPoly ; ++i) {
+				auto res = pointsToPolyMap.emplace(PolyVertex(i), std::vector<LXtPolygonID>{});
+				res.first->second.push_back(PolyID());
+			}
 		}
 		return;
 	}
@@ -362,6 +410,16 @@ void MeshExport::ss_Polygon() {
 			vertices.push_back((float)n[0]);vertices.push_back((float)n[1]);vertices.push_back((float)n[2]);
 		} else {
 			vertices.push_back(255.f); vertices.push_back(255.f); vertices.push_back(255.f);
+		}
+		// if has normal map, calculate and store tangents
+		if (HasTangent(submesh)) {
+			unsigned normalUVMapIndex = submesh.textures[(int)TextureTypes::kNormal].uv;
+			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[normalUVMapIndex].c_str())) { vertices.push_back(255.f);vertices.push_back(255.f);vertices.push_back(255.f);
+			}
+			auto polyID = PolyID(); //save
+			auto tangent = CalcPointTangent(PolyVertex(i));
+			vertices.push_back(tangent.x); vertices.push_back(tangent.y); vertices.push_back(tangent.z);
+			PolySet(polyID); // restore
 		}
 		for (int uv = 0; uv < submesh.uvCount; ++uv) {
 			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[uv].c_str())) {

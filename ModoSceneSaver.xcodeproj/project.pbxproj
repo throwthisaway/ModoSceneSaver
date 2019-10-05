@@ -289,7 +289,7 @@
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
 					"\"$(SRCROOT)/../Shared\"",
-					"\"$(SRCROOT)/../ModoMeshLoader\"",
+					"\"$(SRCROOT)/../FireAndForget.v2/ModoMeshLoader\"",
 					"\"$(SRCROOT)/../3rdparty/glm\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
@@ -310,7 +310,7 @@
 					"\"$(SRCROOT)/../LXSDK_540366/include\"",
 					"\"$(SRCROOT)/../3rdparty/meshoptimizer/src\"",
 					"\"$(SRCROOT)/../Shared\"",
-					"\"$(SRCROOT)/../ModoMeshLoader\"",
+					"\"$(SRCROOT)/../FireAndForget.v2/ModoMeshLoader\"",
 					"\"$(SRCROOT)/../3rdparty/glm\"",
 				);
 				LIBRARY_SEARCH_PATHS = "\"$(SRCROOT)/../LXSDK_540366/build/Debug\"";
