@@ -16,6 +16,7 @@
 #include <lx_item.hpp>
 #include <lx_shade.hpp>
 
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 #include <string>
@@ -29,6 +30,7 @@
 using namespace std;
 using namespace ModoMeshLoader;
 namespace {
+
 template<typename T>
 struct FileFormat {
 	T ff;
@@ -52,7 +54,7 @@ struct FileFormat {
 		ff.lf_Output(texture.id);ff.lf_Output(texture.uv);
 	}
 	void WriteSubmeshes(const vector<Submesh>& submeshes) {
-		const unsigned size = 76;
+		const unsigned size = 80;
 		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(submeshes.size() * size));ff.lf_Output((unsigned)submeshes.size());ff.lf_Break();
 		for (auto& submesh : submeshes) {
 			//ff.lf_Output(material.name.c_str());
@@ -64,13 +66,14 @@ struct FileFormat {
 			ff.lf_Output(submesh.material.diffuse.b); // 24
 			ff.lf_Output(submesh.material.metallic_roughness.r); // 28
 			ff.lf_Output(submesh.material.metallic_roughness.g); // 32
-			ff.lf_Output(submesh.textureMask); // 36
-			ff.lf_Output(submesh.uvCount); // 40
-			WriteTexture(submesh.textures[(int)TextureTypes::kAlbedo]); // 48
-			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]); // 56
-			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]); // 64
-			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]); // 72
-			ff.lf_Output(submesh.count); // 76
+			ff.lf_Output(submesh.vertexType); // 36
+			ff.lf_Output(submesh.textureMask); // 40
+			ff.lf_Output(submesh.uvCount); // 44
+			WriteTexture(submesh.textures[(int)TextureTypes::kAlbedo]); // 52
+			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]); // 60
+			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]); // 68
+			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]); // 76
+			ff.lf_Output(submesh.count); // 80
 			ff.lf_Break();
 		}
 	}
@@ -89,6 +92,13 @@ struct FileFormat {
 			ff.lf_Output((indices[j + 1] << 16) | indices[j]);
 			if (!((j + 1) % kVertPerPoly)) ff.lf_Break();
 		}
+	}
+	void WriteHeader(const Header& header) {
+		ff.lf_Output(Tag(HEAD)); ff.lf_Output((unsigned)sizeof(Header)); ff.lf_Output((unsigned)1); ff.lf_Break();
+		ff.lf_Output(header.version);ff.lf_Break();
+		ff.lf_Output(header.r);ff.lf_Break();
+		ff.lf_Output(header.aabb.min.x);ff.lf_Output(header.aabb.min.y);ff.lf_Output(header.aabb.min.z);ff.lf_Break();
+		ff.lf_Output(header.aabb.max.x);ff.lf_Output(header.aabb.max.y);ff.lf_Output(header.aabb.max.z);ff.lf_Break();
 	}
 };
 
@@ -146,6 +156,8 @@ public:
 	std::vector<Out> out;
 	bool			 get_matr;
 	int polyCount = 0;
+
+	Header header;
 };
 
 //void MeshExport::EnumRender(CLxUser_Item& render) {
@@ -300,8 +312,8 @@ LxResult MeshExport::ss_Save() {
 	}
 
 	// meshoptimizer
-	int indexByteOffset = 0, vertexByteOffset = 0;
-	int iCount = 0, vCount = 0;
+	size_t indexByteOffset = 0, vertexByteOffset = 0;
+	size_t iCount = 0, vCount = 0;
 	for (int i = 0; i < vertexData.size(); ++i) {
 		std::vector<index_t> indices;
 		std::vector<float> vertices;
@@ -316,7 +328,7 @@ LxResult MeshExport::ss_Save() {
 		meshopt_remapIndexBuffer<index_t>(indices.data(), nullptr, elementCount, remap.data());
 		vertices.resize(vertexCount * elementSize);
 		meshopt_remapVertexBuffer(vertices.data(), vd.data(), elementCount, byteStride, remap.data());
-		submesh.indexByteOffset = indexByteOffset; submesh.vertexByteOffset = vertexByteOffset;
+		submesh.indexByteOffset = (uint32_t)indexByteOffset; submesh.vertexByteOffset = (uint32_t)vertexByteOffset;
 		submesh.stride = byteStride;
 		submesh.count = (int)indices.size();
 		indexByteOffset += indices.size() * sizeof(indices[0]);
@@ -327,14 +339,15 @@ LxResult MeshExport::ss_Save() {
 	}
 
 	// actual serialization
+	fileFormat.WriteHeader(header);
 	fileFormat.WriteSubmeshes(submeshes);
 	fileFormat.WriteImages(images);
-	fileFormat.WriteVERT(vertexByteOffset, vCount);
+	fileFormat.WriteVERT((unsigned)vertexByteOffset, (unsigned)vCount);
 	for (int i = 0; i < out.size(); ++i) {
 		int elementSize = CalcElementCount(submeshes[i]);
 		fileFormat.WriteVertices(out[i].vertices.data(), (unsigned)out[i].vertices.size(), elementSize);
 	}
-	fileFormat.WritePOLY(iCount);
+	fileFormat.WritePOLY((unsigned)iCount);
 	for (int i = 0; i < out.size(); ++i)
 		fileFormat.WritePolygons(out[i].indices.data(), (uint32_t)out[i].indices.size());
 
@@ -402,6 +415,9 @@ void MeshExport::ss_Polygon() {
 	auto& vertices = vertexData[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	auto& submesh = submeshes[materialMap[PolyTag(LXi_PTAG_MATR)]];
 	if (PolyNumVerts() != kVertPerPoly) return;
+	submesh.vertexType = 1 << (int)VertexFields::kNormal;
+	if (HasTangent(submesh)) submesh.vertexType |= 1 << (int)VertexFields::kTangent;
+	for (unsigned uv = 0; uv < submesh.uvCount; ++uv) submesh.vertexType |= 1 << ((int)VertexFields::kUV0 + uv);
 	LXtVector n;
 	for (int i = 0; i < kVertPerPoly ; ++i) {
 		auto& pt = points[PolyVertex(i)];
@@ -421,7 +437,7 @@ void MeshExport::ss_Polygon() {
 			vertices.push_back(tangent.x); vertices.push_back(tangent.y); vertices.push_back(tangent.z);
 			PolySet(polyID); // restore
 		}
-		for (int uv = 0; uv < submesh.uvCount; ++uv) {
+		for (unsigned uv = 0; uv < submesh.uvCount; ++uv) {
 			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[uv].c_str())) {
 				vertices.push_back(255.f); vertices.push_back(255.f);
 				continue;
@@ -436,7 +452,16 @@ void MeshExport::ss_Polygon() {
 	}
 }
 void MeshExport::ss_Point() {
-	PntPosition(points[PntID()]);
+	LXtFVector& pt = points[PntID()];
+	PntPosition(pt);
+	header.r = std::max(header.r, std::max(std::abs(pt[0]), std::max(std::abs(pt[1]), std::abs(pt[2]))));
+	if (pt[0] < header.aabb.min.x) header.aabb.min.x = pt[0];
+	if (pt[0] > header.aabb.max.x) header.aabb.max.x = pt[0];
+	if (pt[1] < header.aabb.min.y) header.aabb.min.y = pt[1];
+	if (pt[1] > header.aabb.max.y) header.aabb.max.y = pt[1];
+	if (pt[2] < header.aabb.min.z) header.aabb.min.z = pt[2];
+	if (pt[2] > header.aabb.max.z) header.aabb.max.z = pt[2];
+	
 }
 
 LXtTagInfoDesc	 MeshExport::descInfo[] = {
