@@ -263,6 +263,7 @@ void MeshExport::GatherSubmeshes() {
 					if (GatherTexture(submesh.textures[(int)TextureTypes::kNormal], "normalUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kNormal);
 					if (GatherTexture(submesh.textures[(int)TextureTypes::kMetallic], "metallicUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kMetallic);
 					if (GatherTexture(submesh.textures[(int)TextureTypes::kRoughness], "roughUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kRoughness);
+					if (GatherTexture(submesh.textures[(int)TextureTypes::kBump], "bumpUE", submesh.uvCount)) mask.set((size_t)TextureTypes::kBump);
 				}
 			}
         }
