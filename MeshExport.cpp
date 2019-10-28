@@ -54,7 +54,7 @@ struct FileFormat {
 		ff.lf_Output(texture.id);ff.lf_Output(texture.uv);
 	}
 	void WriteSubmeshes(const vector<Submesh>& submeshes) {
-		const unsigned size = 80;
+		const unsigned size = 88;
 		ff.lf_Output(Tag(MATR)); ff.lf_Output((unsigned)(submeshes.size() * size));ff.lf_Output((unsigned)submeshes.size());ff.lf_Break();
 		for (auto& submesh : submeshes) {
 			//ff.lf_Output(material.name.c_str());
@@ -73,7 +73,8 @@ struct FileFormat {
 			WriteTexture(submesh.textures[(int)TextureTypes::kNormal]); // 60
 			WriteTexture(submesh.textures[(int)TextureTypes::kMetallic]); // 68
 			WriteTexture(submesh.textures[(int)TextureTypes::kRoughness]); // 76
-			ff.lf_Output(submesh.count); // 80
+			WriteTexture(submesh.textures[(int)TextureTypes::kBump]); // 84
+			ff.lf_Output(submesh.count); // 88
 			ff.lf_Break();
 		}
 	}
