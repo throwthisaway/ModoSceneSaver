@@ -136,17 +136,19 @@ public:
 	void Copy(const char* src, const char * dst);
 	size_t FindLastSeparator(const string& str);
 
-	glm::vec3 CalcPointTangent(LXtPointID ptID);
+	glm::vec3 CalcPointTangent(LXtPointID ptID, int submeshIndex);
 	glm::vec3 CalcPolyTangent();
+	bool Equals(const glm::dvec3& n, const glm::vec2& uv, LXtPointID pt);
 
 	LXtMatrix		 xfrm;
 	LXtVector		 xfrmPos;
 	map<LXtPointID, LXtFVector> points;
-	std::unordered_map<LXtPointID, std::vector<LXtPolygonID>> pointsToPolyMap;
+	
 	map<string, unsigned> imageMap;
 	std::vector<string> images;
-	map<string, unsigned> materialMap;
+	map<string, unsigned> submeshMap;
 	vector<Submesh> submeshes;
+	std::vector<std::unordered_map<LXtPointID, std::vector<LXtPolygonID>>> pointsToPolyMapPerSubmesh;
 	vector<std::vector<float>> vertexData;	// vertices per material
 	map<string, unsigned> uvMap;
 	std::vector<string> uvs;
@@ -246,7 +248,7 @@ bool MeshExport::GatherTexture(Texture& texture, const char* name, unsigned& uvC
 void MeshExport::GatherSubmeshes() {
     // same goes for other tag types like: Part, Selection set
     //!!! auto material_tag_of_the_polygon = ChanString(LXsICHAN_MASK_PTAG);
-    for (auto& kv : materialMap) {
+    for (auto& kv : submeshMap) {
         if (!ScanMask(kv.first.c_str())) continue;
 		bitset<32> mask;
 		auto& submesh = submeshes[kv.second];
@@ -356,7 +358,7 @@ LxResult MeshExport::ss_Save() {
 	vertexData.clear();
 	submeshes.clear();
 	points.clear();
-	materialMap.clear();
+	submeshMap.clear();
 	images.clear();
 	imageMap.clear();
 	uvMap.clear();
@@ -364,14 +366,31 @@ LxResult MeshExport::ss_Save() {
 	return LXe_OK;
 }
 
-glm::vec3 MeshExport::CalcPointTangent(LXtPointID ptID) {
-	const auto& polys = pointsToPolyMap[ptID];
+bool MeshExport::Equals(const glm::dvec3& n, const glm::vec2& uv, LXtPointID ptID) {
+	glm::dvec3 otherN;
+	PolyNormal((double*)&otherN, ptID);
+	glm::vec2 otherUV;
+	PolyMapValue((float*)&otherUV, ptID);
+	return n == otherN && uv == otherUV;
+}
+
+glm::vec3 MeshExport::CalcPointTangent(LXtPointID ptID, int submeshIndex) {
+	const auto& polys = pointsToPolyMapPerSubmesh[submeshIndex][ptID];
 	glm::vec3 result{0};
+	glm::dvec3 n;
+	PolyNormal((double*)&n, ptID);
+	glm::vec2 uv;
+	PolyMapValue((float*)&uv, ptID);
+
+	int count = 0;
 	for (const auto& poly : polys) {
 		PolySet(poly);
-		result += CalcPolyTangent();
+		if (Equals(n, uv, PolyVertex(0)) || Equals(n, uv, PolyVertex(1)) || Equals(n, uv, PolyVertex(2))) {
+			result += CalcPolyTangent();
+			++count;
+		}
 	}
-	return result / (float)polys.size();
+	return result / (float)count;
 }
 glm::vec3 MeshExport::CalcPolyTangent() {
 	glm::vec3 result;
@@ -400,12 +419,15 @@ void MeshExport::ss_Polygon() {
 		if (PolyNumVerts() != kVertPerPoly) return;
 		const char *mask = PolyTag(LXi_PTAG_MATR);
 		if (mask) {
-			auto res = materialMap.emplace(mask, (unsigned)submeshes.size());
+			auto res = submeshMap.emplace(mask, (unsigned)submeshes.size());
 			if (res.second) submeshes.push_back({});
 			//else ++materials[res.first->second].count;
 
-			// record points to polygons
-			for (int i = 0; i < kVertPerPoly ; ++i) {
+			// record points to polygons per submesh
+			if (res.second) pointsToPolyMapPerSubmesh.push_back({});
+			
+			auto& pointsToPolyMap = pointsToPolyMapPerSubmesh[res.first->second];
+			for (int i = 0; i < kVertPerPoly; ++i) {
 				auto res = pointsToPolyMap.emplace(PolyVertex(i), std::vector<LXtPolygonID>{});
 				res.first->second.push_back(PolyID());
 			}
@@ -414,8 +436,9 @@ void MeshExport::ss_Polygon() {
 	}
 	++polyCount;
 	vertexData.resize(submeshes.size());
-	auto& vertices = vertexData[materialMap[PolyTag(LXi_PTAG_MATR)]];
-	auto& submesh = submeshes[materialMap[PolyTag(LXi_PTAG_MATR)]];
+	auto& vertices = vertexData[submeshMap[PolyTag(LXi_PTAG_MATR)]];
+	int submeshIndex = submeshMap[PolyTag(LXi_PTAG_MATR)];
+	auto& submesh = submeshes[submeshIndex];
 	if (PolyNumVerts() != kVertPerPoly) return;
 	submesh.vertexType = 1 << (int)VertexFields::kNormal;
 	if (HasTangent(submesh)) submesh.vertexType |= 1 << (int)VertexFields::kTangent;
@@ -432,14 +455,21 @@ void MeshExport::ss_Polygon() {
 		// if has normal map, calculate and store tangents
 		if (HasTangent(submesh)) {
 			unsigned normalUVMapIndex = submesh.textures[(int)TextureTypes::kNormal].uv;
-			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[normalUVMapIndex].c_str())) { vertices.push_back(255.f);vertices.push_back(255.f);vertices.push_back(255.f);
-			}
+			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[normalUVMapIndex].c_str())) { vertices.push_back(255.f);vertices.push_back(255.f);vertices.push_back(255.f);}
+			
 			auto polyID = PolyID(); //save
-			auto tangent = CalcPointTangent(PolyVertex(i));
+			auto tangent = CalcPointTangent(PolyVertex(i), submeshIndex);
 			vertices.push_back(tangent.x); vertices.push_back(tangent.y); vertices.push_back(tangent.z);
 			PolySet(polyID); // restore
 		}
-		for (unsigned uv = 0; uv < submesh.uvCount; ++uv) {
+		// distinct uv map indices
+		std::set<int> uvIndices;
+		for (int i = 0; i < (int)TextureTypes::kCount; ++i) uvIndices.insert(submesh.textures[i].uv);
+		std::vector<int> sortedUvIndices;
+		for (auto uv : uvIndices) sortedUvIndices.push_back(uv);
+		// the order uv coordinates references uv maps by their indices
+		std::sort(std::begin(sortedUvIndices), std::end(sortedUvIndices));
+		for (auto uv : sortedUvIndices) {
 			if(!SetMap(LXi_VMAP_TEXTUREUV, uvs[uv].c_str())) {
 				vertices.push_back(255.f); vertices.push_back(255.f);
 				continue;
