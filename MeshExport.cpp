@@ -464,7 +464,9 @@ void MeshExport::ss_Polygon() {
 		}
 		// distinct uv map indices
 		std::set<int> uvIndices;
-		for (int i = 0; i < (int)TextureTypes::kCount; ++i) uvIndices.insert(submesh.textures[i].uv);
+		for (int i = 0; i < (int)TextureTypes::kCount; ++i)
+			if (submesh.textureMask & (1 << i)) uvIndices.insert(submesh.textures[i].uv);
+
 		std::vector<int> sortedUvIndices;
 		for (auto uv : uvIndices) sortedUvIndices.push_back(uv);
 		// the order uv coordinates references uv maps by their indices
